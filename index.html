@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Polygon Mapper</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        #map-container {
+            flex: 3;
+            height: 100%;
+        }
+        #map {
+            height: 100%;
+            cursor: pointer;
+        }
+        #sidebar {
+            flex: 1;
+            background-color: #f8f9fa;
+            padding: 15px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        #polygon-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        #polygon-list li {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #polygon-list li:hover {
+            background-color: #e9ecef;
+        }
+        .polygon-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .polygon-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .polygon-name {
+            font-weight: bold;
+            flex-grow: 1;
+        }
+        .polygon-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .edit-btn, .save-btn, .cancel-btn, .delete-btn {
+            padding: 3px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .edit-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .save-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        .cancel-btn, .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #dee2e6;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .form-group label {
+            font-size: 0.8em;
+            color: #495057;
+        }
+        .form-group input, .form-group select {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+        }
+        .edit-instructions {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .instructions {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+        .toggle-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin-bottom: 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+        .toggle-btn:hover {
+            background-color: #0069d9;
+        }
+        .toggle-btn.inactive {
+            background-color: #6c757d;
+        }
+        .toggle-btn.inactive:hover {
+            background-color: #5a6268;
+        }
+        #current-points-container {
+            margin-bottom: 20px;
+            background-color: #fff;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #current-points-container h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #495057;
+            font-size: 1.1em;
+        }
+        #current-points-list {
+            font-size: 0.9em;
+        }
+        #current-points-list .empty-message {
+            font-style: italic;
+            color: #6c757d;
+        }
+        .point-item {
+            padding: 5px;
+            margin-bottom: 3px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .point-item:last-child {
+            border-bottom: none;
+        }
+        .point-coordinates {
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+<div id="map-container">
+    <div id="map"></div>
+</div>
+<div id="sidebar">
+    <h2>Saved Polygons</h2>
+    <button id="drawing-toggle" class="toggle-btn">Drawing Mode: ON</button>
+    <div class="instructions">
+        <h3>Drawing Mode</h3>
+        <p>Click the "Drawing Mode" button to toggle drawing on/off.</p>
+        <p>When OFF, you can navigate the map without adding points.</p>
+
+        <h3>Creating Polygons</h3>
+        <p>With drawing mode ON, click on the map to create points.</p>
+        <p>Press 'S' or click the 'Save Polygon' button to save the current polygon.</p>
+        <p>Press 'Ctrl+Z' to undo the last point or click the × button next to any point to remove it.</p>
+
+        <h3>Editing Polygons</h3>
+        <p>Click the 'Edit' button on any saved polygon.</p>
+        <p>In edit mode:</p>
+        <ul>
+            <li>With drawing mode ON, click on the map to add new points</li>
+            <li>Drag existing points to move them</li>
+            <li>Right-click on a point to remove it</li>
+            <li>Change the name and color using the form</li>
+            <li>Press 'Escape' to cancel editing</li>
+        </ul>
+
+        <h3>Deleting Polygons</h3>
+        <p>Click the 'Delete' button on any saved polygon to remove it from the map.</p>
+    </div>
+
+    <div id="current-points-container">
+        <h3>Current Points</h3>
+        <div id="current-points-list">
+            <!-- Current points will be displayed here -->
+            <p class="empty-message">No points added yet</p>
+        </div>
+        <button id="save-polygon-btn" class="toggle-btn" style="margin-top: 10px; background-color: #28a745;">Save Polygon</button>
+    </div>
+
+    <ul id="polygon-list">
+        <!-- Polygon list items will be added here dynamically -->
+    </ul>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<script src="index.js"></script>
+</body>
+</html>
