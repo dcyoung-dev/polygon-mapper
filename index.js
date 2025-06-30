@@ -1,7 +1,13 @@
 import L from 'leaflet';
 
+const satelliteViewUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+const simpleViewUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+let isSimpleView = true // Track current view mode
+let currentTileLayer = null // Store the current tile layer
+
 const map = L.map('map').setView([57.661273, -2.746539], 17)
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+currentTileLayer = L.tileLayer(simpleViewUrl, {
   maxZoom: 19,
   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map)
@@ -631,6 +637,42 @@ function toggleDrawingMode() {
   console.debug('Drawing mode:', drawingMode ? 'ON' : 'OFF')
 }
 
+// Function to toggle between simple and satellite view
+function toggleMapView() {
+  isSimpleView = !isSimpleView
+
+  // Remove current tile layer
+  if (currentTileLayer) {
+    map.removeLayer(currentTileLayer)
+  }
+
+  // Add new tile layer based on the view mode
+  if (isSimpleView) {
+    currentTileLayer = L.tileLayer(simpleViewUrl, {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map)
+  } else {
+    currentTileLayer = L.tileLayer(satelliteViewUrl, {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.arcgis.com/">ArcGIS</a>'
+    }).addTo(map)
+  }
+
+  // Update button text and style
+  const toggleBtn = document.getElementById('view-toggle')
+  if (toggleBtn) {
+    toggleBtn.textContent = `View: ${isSimpleView ? 'Simple' : 'Satellite'}`
+    if (!isSimpleView) {
+      toggleBtn.classList.remove('inactive')
+    } else {
+      toggleBtn.classList.add('inactive')
+    }
+  }
+
+  console.debug('Map view:', isSimpleView ? 'Simple' : 'Satellite')
+}
+
 // Initialize the polygon list and UI state
 updatePolygonList()
 
@@ -655,6 +697,9 @@ window.addEventListener('keydown', function(e) {
 
 // Add event listener for drawing mode toggle button
 document.getElementById('drawing-toggle').addEventListener('click', toggleDrawingMode)
+
+// Add event listener for view toggle button
+document.getElementById('view-toggle').addEventListener('click', toggleMapView)
 
 // Add event listener for save polygon button
 document.getElementById('save-polygon-btn').addEventListener('click', function() {
