@@ -67,7 +67,7 @@
             display: flex;
             gap: 5px;
         }
-        .edit-btn, .save-btn, .cancel-btn, .delete-btn {
+        .edit-btn, .save-btn, .cancel-btn, .delete-btn, .export-btn {
             padding: 3px 8px;
             border: none;
             border-radius: 3px;
@@ -80,6 +80,10 @@
         }
         .save-btn {
             background-color: #28a745;
+            color: white;
+        }
+        .export-btn {
+            background-color: #17a2b8;
             color: white;
         }
         .cancel-btn, .delete-btn {
@@ -206,6 +210,10 @@
 
         <h3>Deleting Polygons</h3>
         <p>Click the 'Delete' button on any saved polygon to remove it from the map.</p>
+
+        <h3>Exporting Polygons</h3>
+        <p>Click the 'Export' button on any saved polygon to download it as a GeoJSON file.</p>
+        <p>Click the 'Export All Polygons' button at the bottom of the list to download all polygons as a single GeoJSON file.</p>
     </div>
 
     <div id="current-points-container">
@@ -220,12 +228,76 @@
     <ul id="polygon-list">
         <!-- Polygon list items will be added here dynamically -->
     </ul>
+
+    <button id="export-all-btn" class="toggle-btn" style="margin-top: 10px; background-color: #17a2b8; display: none;">Export All Polygons</button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""></script>
+<!-- Templates -->
+<!-- Empty message template -->
+<template id="empty-message-template">
+    <p class="empty-message">No points added yet</p>
+</template>
 
-<script src="index.js"></script>
+<!-- Point item template -->
+<template id="point-item-template">
+    <div class="point-item">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span class="point-coordinates"></span>
+            <button class="delete-point-btn" title="Remove this point">&times;</button>
+        </div>
+    </div>
+</template>
+
+<!-- Polygon list item template -->
+<template id="polygon-item-template">
+    <li class="polygon-item">
+        <div class="polygon-header">
+            <span class="polygon-name"></span>
+            <small style="color: #6c757d;"></small>
+            <div class="polygon-actions">
+                <button class="edit-btn">Edit</button>
+                <button class="export-btn">Export</button>
+                <button class="delete-btn">Delete</button>
+            </div>
+        </div>
+    </li>
+</template>
+
+<!-- Edit form template -->
+<template id="edit-form-template">
+    <div class="edit-form">
+        <div class="form-group">
+            <label>Polygon Name:</label>
+            <input type="text">
+        </div>
+        <div class="form-group">
+            <label>Polygon Color:</label>
+            <input type="color">
+        </div>
+        <div class="edit-instructions">
+            <p>Point Editing:</p>
+            <ul>
+                <li>Click on the map to add new points</li>
+                <li>Drag existing points to move them</li>
+                <li>Right-click on a point to remove it</li>
+            </ul>
+        </div>
+        <div class="polygon-actions" style="justify-content: flex-end; margin-top: 10px;">
+            <button class="cancel-btn">Cancel</button>
+            <button class="save-btn">Save Changes</button>
+        </div>
+    </div>
+</template>
+
+<script async src="https://ga.jspm.io/npm:es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "leaflet": "https://esm.sh/leaflet@1.9.4"
+  }
+}
+</script>
+
+<script type="module" src="index.js"></script>
 </body>
 </html>

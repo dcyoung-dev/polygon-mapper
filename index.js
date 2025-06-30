@@ -1,57 +1,46 @@
-var map = L.map('map').setView([57.661273, -2.746539], 17)
+import L from 'leaflet';
+
+const map = L.map('map').setView([57.661273, -2.746539], 17)
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map)
 
-var points = []
-var polygon = null
-var polygons = []
-var polygonColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33F5', '#F5FF33', '#33FFF5', '#FF3333', '#33FF33', '#3333FF']
-var currentPolygonId = 1
-var editingPolygonId = null
-var editMode = false
-var drawingMode = true // Drawing mode is enabled by default
+let points = []
+let polygon = null
+const polygons = []
+const polygonColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33F5', '#F5FF33', '#33FFF5', '#FF3333', '#33FF33', '#3333FF']
+let currentPolygonId = 1
+let editingPolygonId = null
+let editMode = false
+let drawingMode = true // Drawing mode is enabled by default
 
 function updateCurrentPointsList() {
   const pointsList = document.getElementById('current-points-list')
   pointsList.innerHTML = ''
 
   if (points.length === 0) {
-    const emptyMessage = document.createElement('p')
-    emptyMessage.textContent = 'No points added yet'
-    emptyMessage.classList.add('empty-message')
-    pointsList.appendChild(emptyMessage)
+    // Use the empty message template
+    const template = document.getElementById('empty-message-template')
+    const clone = template.content.cloneNode(true)
+    pointsList.appendChild(clone)
     return
   }
 
   points.forEach((point, index) => {
-    const pointItem = document.createElement('div')
-    pointItem.classList.add('point-item')
+    // Use the point item template
+    const template = document.getElementById('point-item-template')
+    const clone = template.content.cloneNode(true)
 
-    // Create a container for the point text
-    const pointTextContainer = document.createElement('div')
-    pointTextContainer.style.display = 'flex'
-    pointTextContainer.style.justifyContent = 'space-between'
-    pointTextContainer.style.alignItems = 'center'
-    pointTextContainer.style.width = '100%'
-
-    const pointText = document.createElement('span')
-    pointText.classList.add('point-coordinates')
-    // Format coordinates to 6 decimal places
+    // Set the point coordinates text
+    const pointText = clone.querySelector('.point-coordinates')
     pointText.textContent = `Point ${index + 1}: [${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}]`
-    pointTextContainer.appendChild(pointText)
 
-    // Create delete button
-    const deleteBtn = document.createElement('button')
-    deleteBtn.classList.add('delete-point-btn')
-    deleteBtn.innerHTML = '&times;' // × symbol
-    deleteBtn.title = 'Remove this point'
+    // Add event listener to the delete button
+    const deleteBtn = clone.querySelector('.delete-point-btn')
     deleteBtn.addEventListener('click', () => removePoint(index))
 
-    pointTextContainer.appendChild(deleteBtn)
-    pointItem.appendChild(pointTextContainer)
-    pointsList.appendChild(pointItem)
+    pointsList.appendChild(clone)
   })
 }
 
@@ -91,56 +80,66 @@ function updatePolygonList() {
   polygonList.innerHTML = ''
 
   if (polygons.length === 0) {
-    const emptyMessage = document.createElement('li')
+    // Use the empty message template but customize it for polygons
+    const template = document.getElementById('empty-message-template')
+    const clone = template.content.cloneNode(true)
+    const emptyMessage = clone.querySelector('.empty-message')
     emptyMessage.textContent = 'No polygons saved yet'
     emptyMessage.style.fontStyle = 'italic'
     emptyMessage.style.color = '#6c757d'
-    polygonList.appendChild(emptyMessage)
+    polygonList.appendChild(clone)
+
+    // Hide export all button when no polygons
+    const exportAllBtn = document.getElementById('export-all-btn')
+    if (exportAllBtn) {
+      exportAllBtn.style.display = 'none'
+    }
     return
   }
 
-  polygons.forEach((polygonData, index) => {
-    const listItem = document.createElement('li')
+  // Show export all button when polygons exist
+  const exportAllBtn = document.getElementById('export-all-btn')
+  if (exportAllBtn) {
+    exportAllBtn.style.display = 'block'
+  }
+
+  polygons.forEach((polygonData) => {
+    // Use the polygon item template
+    const template = document.getElementById('polygon-item-template')
+    const clone = template.content.cloneNode(true)
+
+    // Get the list item and set its border color
+    const listItem = clone.querySelector('.polygon-item')
     listItem.style.borderLeft = `4px solid ${polygonData.color}`
-    listItem.classList.add('polygon-item')
 
-    // Create polygon header with name and actions
-    const header = document.createElement('div')
-    header.classList.add('polygon-header')
-
-    const nameSpan = document.createElement('span')
-    nameSpan.classList.add('polygon-name')
+    // Set the polygon name and points info
+    const nameSpan = clone.querySelector('.polygon-name')
     nameSpan.textContent = polygonData.name
-    header.appendChild(nameSpan)
 
-    const pointsInfo = document.createElement('small')
-    pointsInfo.style.color = '#6c757d'
+    const pointsInfo = clone.querySelector('small')
     pointsInfo.textContent = `${polygonData.points.length} points`
-    header.appendChild(pointsInfo)
 
-    const actions = document.createElement('div')
-    actions.classList.add('polygon-actions')
+    // Get the header and action buttons
+    const header = clone.querySelector('.polygon-header')
+    const editBtn = clone.querySelector('.edit-btn')
+    const exportBtn = clone.querySelector('.export-btn')
+    const deleteBtn = clone.querySelector('.delete-btn')
 
-    const editBtn = document.createElement('button')
-    editBtn.classList.add('edit-btn')
-    editBtn.textContent = 'Edit'
+    // Add event listeners to the buttons
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       startEditing(polygonData.id)
     })
-    actions.appendChild(editBtn)
 
-    const deleteBtn = document.createElement('button')
-    deleteBtn.classList.add('delete-btn')
-    deleteBtn.textContent = 'Delete'
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      exportPolygon(polygonData.id)
+    })
+
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       deletePolygon(polygonData.id)
     })
-    actions.appendChild(deleteBtn)
-
-    header.appendChild(actions)
-    listItem.appendChild(header)
 
     // Create edit form (hidden by default)
     if (editingPolygonId === polygonData.id) {
@@ -162,92 +161,46 @@ function updatePolygonList() {
     })
 
     // Center map on polygon when clicked (only if not in edit mode)
-    header.addEventListener('click', (e) => {
+    header.addEventListener('click', () => {
       if (editingPolygonId !== polygonData.id) {
         map.fitBounds(polygonData.leafletPolygon.getBounds())
       }
     })
 
-    polygonList.appendChild(listItem)
+    polygonList.appendChild(clone)
   })
 }
 
 function createEditForm(polygonData) {
-  const form = document.createElement('div')
-  form.classList.add('edit-form')
+  // Use the edit form template
+  const template = document.getElementById('edit-form-template')
+  const clone = template.content.cloneNode(true)
 
-  // Name input
-  const nameGroup = document.createElement('div')
-  nameGroup.classList.add('form-group')
+  // Get the form elements
+  const nameInput = clone.querySelector('.form-group input[type="text"]')
+  const colorInput = clone.querySelector('.form-group input[type="color"]')
+  const cancelBtn = clone.querySelector('.cancel-btn')
+  const saveBtn = clone.querySelector('.save-btn')
 
-  const nameLabel = document.createElement('label')
-  nameLabel.textContent = 'Polygon Name:'
-  nameGroup.appendChild(nameLabel)
-
-  const nameInput = document.createElement('input')
-  nameInput.type = 'text'
+  // Set input values
   nameInput.value = polygonData.name
   nameInput.id = `polygon-name-${polygonData.id}`
-  nameGroup.appendChild(nameInput)
 
-  form.appendChild(nameGroup)
-
-  // Color picker
-  const colorGroup = document.createElement('div')
-  colorGroup.classList.add('form-group')
-
-  const colorLabel = document.createElement('label')
-  colorLabel.textContent = 'Polygon Color:'
-  colorGroup.appendChild(colorLabel)
-
-  const colorInput = document.createElement('input')
-  colorInput.type = 'color'
   colorInput.value = polygonData.color
   colorInput.id = `polygon-color-${polygonData.id}`
-  colorGroup.appendChild(colorInput)
 
-  form.appendChild(colorGroup)
-
-  // Edit instructions
-  const instructions = document.createElement('div')
-  instructions.classList.add('edit-instructions')
-  instructions.innerHTML = `
-    <p>Point Editing:</p>
-    <ul>
-      <li>Click on the map to add new points</li>
-      <li>Drag existing points to move them</li>
-      <li>Right-click on a point to remove it</li>
-    </ul>
-  `
-  form.appendChild(instructions)
-
-  // Action buttons
-  const actions = document.createElement('div')
-  actions.classList.add('polygon-actions')
-  actions.style.justifyContent = 'flex-end'
-  actions.style.marginTop = '10px'
-
-  const cancelBtn = document.createElement('button')
-  cancelBtn.classList.add('cancel-btn')
-  cancelBtn.textContent = 'Cancel'
+  // Add event listeners to buttons
   cancelBtn.addEventListener('click', (e) => {
     e.stopPropagation()
     cancelEditing()
   })
-  actions.appendChild(cancelBtn)
 
-  const saveBtn = document.createElement('button')
-  saveBtn.classList.add('save-btn')
-  saveBtn.textContent = 'Save Changes'
   saveBtn.addEventListener('click', (e) => {
     e.stopPropagation()
     saveEdits(polygonData.id)
   })
-  actions.appendChild(saveBtn)
 
-  form.appendChild(actions)
-
-  return form
+  return clone.querySelector('.edit-form')
 }
 
 function savePolygon (e) {
@@ -336,6 +289,93 @@ function removePoint(index) {
 
   // Update the current points list in the sidebar
   updateCurrentPointsList()
+}
+
+// Function to convert polygon data to GeoJSON format
+function convertToGeoJSON(polygonData) {
+  // Create a GeoJSON feature for the polygon
+  const feature = {
+    type: "Feature",
+    properties: {
+      id: polygonData.id,
+      name: polygonData.name,
+      color: polygonData.color
+    },
+    geometry: {
+      type: "Polygon",
+      coordinates: [[]]
+    }
+  };
+
+  // Add coordinates to the GeoJSON feature
+  // GeoJSON uses [longitude, latitude] format, while Leaflet uses [latitude, longitude]
+  polygonData.points.forEach(point => {
+    feature.geometry.coordinates[0].push([point.lng, point.lat]);
+  });
+
+  // Close the polygon by repeating the first point
+  if (polygonData.points.length > 0) {
+    const firstPoint = polygonData.points[0];
+    feature.geometry.coordinates[0].push([firstPoint.lng, firstPoint.lat]);
+  }
+
+  return feature;
+}
+
+// Function to export a single polygon
+function exportPolygon(polygonId) {
+  const polygonData = polygons.find(p => p.id === polygonId);
+  if (!polygonData) {
+    console.warn('Polygon not found:', polygonId);
+    return;
+  }
+
+  // Convert polygon to GeoJSON
+  const feature = convertToGeoJSON(polygonData);
+  const geoJSON = {
+    type: "FeatureCollection",
+    features: [feature]
+  };
+
+  // Create a downloadable file
+  downloadJSON(geoJSON, `polygon_${polygonData.name.replace(/\s+/g, '_')}`);
+}
+
+// Function to export all polygons
+function exportAllPolygons() {
+  if (polygons.length === 0) {
+    alert('No polygons to export.');
+    return;
+  }
+
+  // Convert all polygons to GeoJSON
+  const features = polygons.map(polygonData => convertToGeoJSON(polygonData));
+  const geoJSON = {
+    type: "FeatureCollection",
+    features: features
+  };
+
+  // Create a downloadable file
+  downloadJSON(geoJSON, 'all_polygons');
+}
+
+// Function to download JSON data as a file
+function downloadJSON(data, filename) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.geojson`;
+  document.body.appendChild(a);
+  a.click();
+
+  // Cleanup
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 // Function to delete a saved polygon
@@ -620,5 +660,8 @@ document.getElementById('drawing-toggle').addEventListener('click', toggleDrawin
 document.getElementById('save-polygon-btn').addEventListener('click', function() {
   savePolygon(); // Call without parameters to trigger save
 })
+
+// Add event listener for export all button
+document.getElementById('export-all-btn').addEventListener('click', exportAllPolygons)
 
 map.on('click', onMapClick)
