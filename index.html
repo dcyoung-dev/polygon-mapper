@@ -187,6 +187,22 @@
 <div id="sidebar">
     <h2>Saved Polygons</h2>
     <button id="drawing-toggle" class="toggle-btn">Drawing Mode: ON</button>
+
+    <div id="current-points-container">
+        <h3>Current Points</h3>
+        <div id="current-points-list">
+            <!-- Current points will be displayed here -->
+            <p class="empty-message">No points added yet</p>
+        </div>
+        <button id="save-polygon-btn" class="toggle-btn" style="margin-top: 10px; background-color: #28a745;">Save Polygon</button>
+    </div>
+
+    <ul id="polygon-list">
+        <!-- Polygon list items will be added here dynamically -->
+    </ul>
+
+    <button id="export-all-btn" class="toggle-btn" style="margin-top: 10px; background-color: #17a2b8; display: none;">Export All Polygons</button>
+
     <div class="instructions">
         <h3>Drawing Mode</h3>
         <p>Click the "Drawing Mode" button to toggle drawing on/off.</p>
@@ -215,21 +231,6 @@
         <p>Click the 'Export' button on any saved polygon to download it as a GeoJSON file.</p>
         <p>Click the 'Export All Polygons' button at the bottom of the list to download all polygons as a single GeoJSON file.</p>
     </div>
-
-    <div id="current-points-container">
-        <h3>Current Points</h3>
-        <div id="current-points-list">
-            <!-- Current points will be displayed here -->
-            <p class="empty-message">No points added yet</p>
-        </div>
-        <button id="save-polygon-btn" class="toggle-btn" style="margin-top: 10px; background-color: #28a745;">Save Polygon</button>
-    </div>
-
-    <ul id="polygon-list">
-        <!-- Polygon list items will be added here dynamically -->
-    </ul>
-
-    <button id="export-all-btn" class="toggle-btn" style="margin-top: 10px; background-color: #17a2b8; display: none;">Export All Polygons</button>
 </div>
 
 <!-- Templates -->
