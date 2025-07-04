@@ -18,6 +18,7 @@
 <div id="sidebar">
     <h2>Saved Polygons</h2>
     <button id="drawing-toggle" class="toggle-btn">Drawing Mode: ON</button>
+    <button id="marker-toggle" class="toggle-btn inactive">Marker Mode: OFF</button>
     <button id="view-toggle" class="toggle-btn inactive">View: Simple</button>
 
     <div id="current-points-container">
@@ -27,6 +28,15 @@
             <p class="empty-message">No points added yet</p>
         </div>
         <button id="save-polygon-btn" class="toggle-btn" style="margin-top: 10px; background-color: #28a745;">Save Polygon</button>
+    </div>
+
+    <div id="saved-markers-container" style="display: none;">
+        <h3>Saved Markers</h3>
+        <ul id="marker-list">
+            <!-- Marker list items will be added here dynamically -->
+            <p class="empty-message">No markers saved yet</p>
+        </ul>
+        <button id="export-all-markers-btn" class="toggle-btn" style="margin-top: 10px; background-color: #17a2b8; display: none;">Export All Markers</button>
     </div>
 
     <ul id="polygon-list">
@@ -40,10 +50,19 @@
         <p>Click the "Drawing Mode" button to toggle drawing on/off.</p>
         <p>When OFF, you can navigate the map without adding points.</p>
 
+        <h3>Marker Mode</h3>
+        <p>Click the "Marker Mode" button to toggle marker placement on/off.</p>
+        <p>When ON, click on the map to place markers at specific locations.</p>
+        <p>Note: Drawing Mode and Marker Mode cannot be active at the same time.</p>
+
         <h3>Creating Polygons</h3>
         <p>With drawing mode ON, click on the map to create points.</p>
         <p>Press 'S' or click the 'Save Polygon' button to save the current polygon.</p>
         <p>Press 'Ctrl+Z' to undo the last point or click the × button next to any point to remove it.</p>
+
+        <h3>Creating Markers</h3>
+        <p>With marker mode ON, click on the map to place a marker at that location.</p>
+        <p>Each marker is automatically saved and appears in the Saved Markers list.</p>
 
         <h3>Editing Polygons</h3>
         <p>Click the 'Edit' button on any saved polygon.</p>
@@ -56,12 +75,21 @@
             <li>Press 'Escape' to cancel editing</li>
         </ul>
 
-        <h3>Deleting Polygons</h3>
-        <p>Click the 'Delete' button on any saved polygon to remove it from the map.</p>
+        <h3>Editing Markers</h3>
+        <p>Click the 'Edit' button on any saved marker.</p>
+        <p>In edit mode:</p>
+        <ul>
+            <li>Drag the marker to a new location</li>
+            <li>Change the name and color using the form</li>
+            <li>Click 'Save Changes' to save or 'Cancel' to discard changes</li>
+        </ul>
 
-        <h3>Exporting Polygons</h3>
-        <p>Click the 'Export' button on any saved polygon to download it as a GeoJSON file.</p>
-        <p>Click the 'Export All Polygons' button at the bottom of the list to download all polygons as a single GeoJSON file.</p>
+        <h3>Deleting Polygons and Markers</h3>
+        <p>Click the 'Delete' button on any saved polygon or marker to remove it from the map.</p>
+
+        <h3>Exporting</h3>
+        <p>Click the 'Export' button on any saved polygon or marker to download it as a GeoJSON file.</p>
+        <p>Click the 'Export All Polygons' or 'Export All Markers' button to download all items as a single GeoJSON file.</p>
     </div>
 </div>
 
@@ -77,6 +105,39 @@
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span class="point-coordinates"></span>
             <button class="delete-point-btn" title="Remove this point">&times;</button>
+        </div>
+    </div>
+</template>
+
+<!-- Marker item template -->
+<template id="marker-item-template">
+    <li class="marker-item">
+        <div class="marker-header">
+            <span class="marker-name"></span>
+            <small class="marker-coordinates" style="color: #6c757d;"></small>
+            <div class="marker-actions">
+                <button class="edit-marker-btn">Edit</button>
+                <button class="export-marker-btn">Export</button>
+                <button class="delete-marker-btn">Delete</button>
+            </div>
+        </div>
+    </li>
+</template>
+
+<!-- Marker edit form template -->
+<template id="marker-edit-form-template">
+    <div class="edit-form">
+        <div class="form-group">
+            <label>Marker Name:</label>
+            <input type="text">
+        </div>
+        <div class="form-group">
+            <label>Marker Color:</label>
+            <input type="color">
+        </div>
+        <div class="polygon-actions" style="justify-content: flex-end; margin-top: 10px;">
+            <button class="cancel-marker-btn">Cancel</button>
+            <button class="save-marker-btn">Save Changes</button>
         </div>
     </div>
 </template>

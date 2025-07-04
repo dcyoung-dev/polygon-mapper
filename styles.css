@@ -36,11 +36,11 @@ body {
         box-shadow: -2px 0 5px rgba(0,0,0,0.1);
     }
 }
-#polygon-list {
+#polygon-list, #marker-list {
     list-style-type: none;
     padding: 0;
 }
-#polygon-list li {
+#polygon-list li, #marker-list li {
     padding: 10px;
     margin-bottom: 5px;
     background-color: #fff;
@@ -49,43 +49,56 @@ body {
     cursor: pointer;
     transition: background-color 0.2s;
 }
-#polygon-list li:hover {
+#polygon-list li:hover, #marker-list li:hover {
     background-color: #e9ecef;
 }
-.polygon-item {
+/* Custom marker styling */
+.custom-marker {
+    cursor: pointer;
+}
+.polygon-item, .marker-item {
     display: flex;
     flex-direction: column;
 }
-.polygon-header {
+.polygon-header, .marker-header {
     display: flex;
     flex-direction: column;
     margin-bottom: 8px;
 }
-.polygon-name {
+.polygon-name, .marker-name {
     font-weight: bold;
     margin-bottom: 5px;
     font-size: 1.1em;
 }
-.polygon-actions {
+.polygon-actions, .marker-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
 }
+.marker-coordinates {
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
 
 @media (min-width: 768px) {
-    .polygon-header {
+    .polygon-header, .marker-header {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 5px;
     }
-    .polygon-name {
+    .polygon-name, .marker-name {
         flex-grow: 1;
         margin-bottom: 0;
         font-size: 1em;
     }
+    .marker-coordinates {
+        margin-bottom: 0;
+        font-size: 0.8em;
+    }
 }
-.edit-btn, .save-btn, .cancel-btn, .delete-btn, .export-btn {
+.edit-btn, .save-btn, .cancel-btn, .delete-btn, .export-btn,
+.edit-marker-btn, .save-marker-btn, .cancel-marker-btn, .delete-marker-btn, .export-marker-btn {
     padding: 8px 12px;
     border: none;
     border-radius: 4px;
@@ -111,12 +124,13 @@ body {
 }
 
 @media (min-width: 768px) {
-    .edit-btn, .save-btn, .cancel-btn, .delete-btn, .export-btn {
+    .edit-btn, .save-btn, .cancel-btn, .delete-btn, .export-btn,
+    .edit-marker-btn, .save-marker-btn, .cancel-marker-btn, .delete-marker-btn, .export-marker-btn {
         padding: 3px 8px;
         font-size: 0.8em;
         margin: 0;
     }
-    .polygon-actions {
+    .polygon-actions, .marker-actions {
         gap: 5px;
     }
 }

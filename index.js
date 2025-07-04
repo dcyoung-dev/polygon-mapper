@@ -20,6 +20,11 @@ let currentPolygonId = 1
 let editingPolygonId = null
 let editMode = false
 let drawingMode = true // Drawing mode is enabled by default
+let markerMode = false // Marker mode is disabled by default
+const markers = [] // Array to store saved markers
+let currentMarkerId = 1
+let editingMarkerId = null
+let markerEditMode = false
 
 function updateCurrentPointsList() {
   const pointsList = document.getElementById('current-points-list')
@@ -64,6 +69,9 @@ function onMapClick (e) {
         updateEditingPolygon(polygonData)
       }
     }
+  } else if (markerMode) {
+    // Marker mode - add a marker at the clicked location
+    addMarker(e.latlng)
   } else if (drawingMode) {
     // Normal mode with drawing enabled - creating a new polygon
     points.push(e.latlng)
@@ -78,7 +86,425 @@ function onMapClick (e) {
     // Update the current points list in the sidebar
     updateCurrentPointsList()
   }
-  // If drawing mode is disabled, clicks on the map will do nothing (just navigation)
+  // If drawing mode and marker mode are disabled, clicks on the map will do nothing (just navigation)
+}
+
+// Function to add a marker at the specified location
+function addMarker(latlng) {
+  // Create a marker with a default color
+  const colorIndex = (currentMarkerId - 1) % polygonColors.length
+  const color = polygonColors[colorIndex]
+
+  // Create a custom icon with the selected color
+  const markerIcon = L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  })
+
+  // Create the Leaflet marker
+  const leafletMarker = L.marker(latlng, {
+    icon: markerIcon,
+    draggable: false
+  }).addTo(map)
+
+  // Create a popup with the coordinates
+  const popupContent = `<b>Marker ${currentMarkerId}</b><br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
+  leafletMarker.bindPopup(popupContent)
+
+  // Store marker data
+  const markerData = {
+    id: currentMarkerId++,
+    name: `Marker ${currentMarkerId - 1}`,
+    latlng: latlng,
+    color: color,
+    leafletMarker: leafletMarker
+  }
+
+  markers.push(markerData)
+  updateMarkerList()
+
+  // Show the saved markers container if it was hidden
+  document.getElementById('saved-markers-container').style.display = 'block'
+}
+
+// Function to update the marker list in the sidebar
+function updateMarkerList() {
+  const markerList = document.getElementById('marker-list')
+  markerList.innerHTML = ''
+
+  if (markers.length === 0) {
+    // Use the empty message template but customize it for markers
+    const template = document.getElementById('empty-message-template')
+    const clone = template.content.cloneNode(true)
+    const emptyMessage = clone.querySelector('.empty-message')
+    emptyMessage.textContent = 'No markers saved yet'
+    emptyMessage.style.fontStyle = 'italic'
+    emptyMessage.style.color = '#6c757d'
+    markerList.appendChild(clone)
+
+    // Hide export all markers button when no markers
+    const exportAllBtn = document.getElementById('export-all-markers-btn')
+    if (exportAllBtn) {
+      exportAllBtn.style.display = 'none'
+    }
+    return
+  }
+
+  // Show export all markers button when markers exist
+  const exportAllBtn = document.getElementById('export-all-markers-btn')
+  if (exportAllBtn) {
+    exportAllBtn.style.display = 'block'
+  }
+
+  markers.forEach((markerData) => {
+    // Use the marker item template
+    const template = document.getElementById('marker-item-template')
+    const clone = template.content.cloneNode(true)
+
+    // Get the list item and set its border color
+    const listItem = clone.querySelector('.marker-item')
+    listItem.style.borderLeft = `4px solid ${markerData.color}`
+
+    // Set the marker name and coordinates info
+    const nameSpan = clone.querySelector('.marker-name')
+    nameSpan.textContent = markerData.name
+
+    const coordsInfo = clone.querySelector('.marker-coordinates')
+    coordsInfo.textContent = `[${markerData.latlng.lat.toFixed(6)}, ${markerData.latlng.lng.toFixed(6)}]`
+
+    // Get the header and action buttons
+    const header = clone.querySelector('.marker-header')
+    const editBtn = clone.querySelector('.edit-marker-btn')
+    const exportBtn = clone.querySelector('.export-marker-btn')
+    const deleteBtn = clone.querySelector('.delete-marker-btn')
+
+    // Add event listeners to the buttons
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      startEditingMarker(markerData.id)
+    })
+
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      exportMarker(markerData.id)
+    })
+
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      deleteMarker(markerData.id)
+    })
+
+    // Create edit form (hidden by default)
+    if (editingMarkerId === markerData.id) {
+      const editForm = createMarkerEditForm(markerData)
+      listItem.appendChild(editForm)
+    }
+
+    // Highlight the marker on hover
+    listItem.addEventListener('mouseenter', () => {
+      if (editingMarkerId !== markerData.id) {
+        markerData.leafletMarker.openPopup()
+      }
+    })
+
+    listItem.addEventListener('mouseleave', () => {
+      if (editingMarkerId !== markerData.id) {
+        markerData.leafletMarker.closePopup()
+      }
+    })
+
+    // Center map on marker when clicked (only if not in edit mode)
+    header.addEventListener('click', () => {
+      if (editingMarkerId !== markerData.id) {
+        map.setView(markerData.latlng, map.getZoom())
+        markerData.leafletMarker.openPopup()
+      }
+    })
+
+    markerList.appendChild(clone)
+  })
+}
+
+// Function to create the edit form for a marker
+function createMarkerEditForm(markerData) {
+  // Use the marker edit form template
+  const template = document.getElementById('marker-edit-form-template')
+  const clone = template.content.cloneNode(true)
+
+  // Get the form elements
+  const nameInput = clone.querySelector('.form-group input[type="text"]')
+  const colorInput = clone.querySelector('.form-group input[type="color"]')
+  const cancelBtn = clone.querySelector('.cancel-marker-btn')
+  const saveBtn = clone.querySelector('.save-marker-btn')
+
+  // Set input values
+  nameInput.value = markerData.name
+  nameInput.id = `marker-name-${markerData.id}`
+
+  colorInput.value = markerData.color
+  colorInput.id = `marker-color-${markerData.id}`
+
+  // Add event listeners to buttons
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    cancelEditingMarker()
+  })
+
+  saveBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    saveMarkerEdits(markerData.id)
+  })
+
+  return clone.querySelector('.edit-form')
+}
+
+// Function to start editing a marker
+function startEditingMarker(markerId) {
+  // Exit if already editing this marker
+  if (editingMarkerId === markerId) return
+
+  // Cancel any ongoing editing
+  if (markerEditMode) {
+    cancelEditingMarker()
+  }
+
+  const markerData = markers.find(m => m.id === markerId)
+  if (!markerData) return
+
+  console.debug('Starting edit mode for marker', markerId)
+
+  // Set editing state
+  markerEditMode = true
+  editingMarkerId = markerId
+
+  // Make the marker draggable
+  markerData.leafletMarker.dragging.enable()
+
+  // Update the marker's popup to indicate edit mode
+  const popupContent = `<b>${markerData.name}</b><br>Edit Mode: Drag to reposition<br>Lat: ${markerData.latlng.lat.toFixed(6)}<br>Lng: ${markerData.latlng.lng.toFixed(6)}`
+  markerData.leafletMarker.setPopupContent(popupContent)
+  markerData.leafletMarker.openPopup()
+
+  // Add dragend event to update the marker's position
+  markerData.leafletMarker.on('dragend', function() {
+    const newPos = markerData.leafletMarker.getLatLng()
+    markerData.latlng = newPos
+
+    // Update the popup content with new coordinates
+    const popupContent = `<b>${markerData.name}</b><br>Edit Mode: Drag to reposition<br>Lat: ${newPos.lat.toFixed(6)}<br>Lng: ${newPos.lng.toFixed(6)}`
+    markerData.leafletMarker.setPopupContent(popupContent)
+
+    // Update the marker list to reflect the new position
+    updateMarkerList()
+  })
+
+  // Update the UI
+  updateMarkerList()
+}
+
+// Function to cancel editing a marker
+function cancelEditingMarker() {
+  if (!markerEditMode) return
+
+  console.debug('Canceling marker edit mode')
+
+  const markerData = markers.find(m => m.id === editingMarkerId)
+  if (markerData) {
+    // Disable dragging
+    markerData.leafletMarker.dragging.disable()
+
+    // Update the popup to normal mode
+    const popupContent = `<b>${markerData.name}</b><br>Lat: ${markerData.latlng.lat.toFixed(6)}<br>Lng: ${markerData.latlng.lng.toFixed(6)}`
+    markerData.leafletMarker.setPopupContent(popupContent)
+    markerData.leafletMarker.closePopup()
+  }
+
+  // Reset editing state
+  markerEditMode = false
+  editingMarkerId = null
+
+  // Update the UI
+  updateMarkerList()
+}
+
+// Function to save marker edits
+function saveMarkerEdits(markerId) {
+  if (!markerEditMode || editingMarkerId !== markerId) return
+
+  console.debug('Saving edits for marker', markerId)
+
+  const markerData = markers.find(m => m.id === markerId)
+  if (!markerData) return
+
+  // Update marker name
+  const nameInput = document.getElementById(`marker-name-${markerId}`)
+  if (nameInput) {
+    markerData.name = nameInput.value || markerData.name
+  }
+
+  // Update marker color
+  const colorInput = document.getElementById(`marker-color-${markerId}`)
+  if (colorInput) {
+    markerData.color = colorInput.value || markerData.color
+
+    // Update the marker icon with the new color
+    const markerIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="background-color:${markerData.color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    })
+
+    markerData.leafletMarker.setIcon(markerIcon)
+  }
+
+  // Disable dragging
+  markerData.leafletMarker.dragging.disable()
+
+  // Update the popup content
+  const popupContent = `<b>${markerData.name}</b><br>Lat: ${markerData.latlng.lat.toFixed(6)}<br>Lng: ${markerData.latlng.lng.toFixed(6)}`
+  markerData.leafletMarker.setPopupContent(popupContent)
+
+  // Reset editing state
+  markerEditMode = false
+  editingMarkerId = null
+
+  // Update the UI
+  updateMarkerList()
+}
+
+// Function to delete a marker
+function deleteMarker(markerId) {
+  // Find the marker by ID
+  const markerIndex = markers.findIndex(m => m.id === markerId)
+
+  if (markerIndex === -1) {
+    console.warn('Marker not found:', markerId)
+    return
+  }
+
+  // Get the marker data
+  const markerData = markers[markerIndex]
+
+  // If we're currently editing this marker, cancel editing
+  if (editingMarkerId === markerId) {
+    cancelEditingMarker()
+  }
+
+  // Remove the marker from the map
+  if (markerData.leafletMarker) {
+    markerData.leafletMarker.remove()
+  }
+
+  // Remove the marker from the array
+  markers.splice(markerIndex, 1)
+
+  console.debug('Deleted marker:', markerId)
+
+  // Update the UI
+  updateMarkerList()
+
+  // Hide the saved markers container if there are no markers
+  if (markers.length === 0) {
+    document.getElementById('saved-markers-container').style.display = 'none'
+  }
+}
+
+// Function to convert marker data to GeoJSON format
+function convertMarkerToGeoJSON(markerData) {
+  // Create a GeoJSON feature for the marker
+  const feature = {
+    type: "Feature",
+    properties: {
+      id: markerData.id,
+      name: markerData.name,
+      color: markerData.color
+    },
+    geometry: {
+      type: "Point",
+      coordinates: [markerData.latlng.lng, markerData.latlng.lat]
+    }
+  };
+
+  return feature;
+}
+
+// Function to export a single marker
+function exportMarker(markerId) {
+  const markerData = markers.find(m => m.id === markerId);
+  if (!markerData) {
+    console.warn('Marker not found:', markerId);
+    return;
+  }
+
+  // Convert marker to GeoJSON
+  const feature = convertMarkerToGeoJSON(markerData);
+  const geoJSON = {
+    type: "FeatureCollection",
+    features: [feature]
+  };
+
+  // Create a downloadable file
+  downloadJSON(geoJSON, `marker_${markerData.name.replace(/\s+/g, '_')}`);
+}
+
+// Function to export all markers
+function exportAllMarkers() {
+  if (markers.length === 0) {
+    alert('No markers to export.');
+    return;
+  }
+
+  // Convert all markers to GeoJSON
+  const features = markers.map(markerData => convertMarkerToGeoJSON(markerData));
+  const geoJSON = {
+    type: "FeatureCollection",
+    features: features
+  };
+
+  // Create a downloadable file
+  downloadJSON(geoJSON, 'all_markers');
+}
+
+// Function to toggle marker mode
+function toggleMarkerMode() {
+  // If drawing mode is on, turn it off
+  if (drawingMode) {
+    toggleDrawingMode();
+  }
+
+  markerMode = !markerMode;
+
+  // Update button text and style
+  const toggleBtn = document.getElementById('marker-toggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = `Marker Mode: ${markerMode ? 'ON' : 'OFF'}`;
+    if (markerMode) {
+      toggleBtn.classList.remove('inactive');
+    } else {
+      toggleBtn.classList.add('inactive');
+    }
+  }
+
+  // Update cursor style based on marker mode
+  const mapElement = document.getElementById('map');
+  if (mapElement) {
+    mapElement.style.cursor = markerMode ? 'crosshair' : 'grab';
+  }
+
+  // Show or hide the saved markers container based on marker mode and if there are markers
+  const savedMarkersContainer = document.getElementById('saved-markers-container');
+  if (savedMarkersContainer) {
+    if (markerMode || markers.length > 0) {
+      savedMarkersContainer.style.display = 'block';
+    } else {
+      savedMarkersContainer.style.display = 'none';
+    }
+  }
+
+  console.debug('Marker mode:', markerMode ? 'ON' : 'OFF');
 }
 
 function updatePolygonList() {
@@ -698,6 +1124,9 @@ window.addEventListener('keydown', function(e) {
 // Add event listener for drawing mode toggle button
 document.getElementById('drawing-toggle').addEventListener('click', toggleDrawingMode)
 
+// Add event listener for marker mode toggle button
+document.getElementById('marker-toggle').addEventListener('click', toggleMarkerMode)
+
 // Add event listener for view toggle button
 document.getElementById('view-toggle').addEventListener('click', toggleMapView)
 
@@ -706,7 +1135,10 @@ document.getElementById('save-polygon-btn').addEventListener('click', function()
   savePolygon(); // Call without parameters to trigger save
 })
 
-// Add event listener for export all button
+// Add event listener for export all polygons button
 document.getElementById('export-all-btn').addEventListener('click', exportAllPolygons)
+
+// Add event listener for export all markers button
+document.getElementById('export-all-markers-btn').addEventListener('click', exportAllMarkers)
 
 map.on('click', onMapClick)
