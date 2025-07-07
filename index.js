@@ -611,6 +611,7 @@ function createEditForm(polygonData) {
   // Get the form elements
   const nameInput = clone.querySelector('.form-group input[type="text"]')
   const colorInput = clone.querySelector('.form-group input[type="color"]')
+  const descriptionInput = clone.querySelector('.polygon-description-input')
   const cancelBtn = clone.querySelector('.cancel-btn')
   const saveBtn = clone.querySelector('.save-btn')
 
@@ -620,6 +621,9 @@ function createEditForm(polygonData) {
 
   colorInput.value = polygonData.color
   colorInput.id = `polygon-color-${polygonData.id}`
+
+  descriptionInput.value = polygonData.description || ''
+  descriptionInput.id = `polygon-description-${polygonData.id}`
 
   // Add event listeners to buttons
   cancelBtn.addEventListener('click', (e) => {
@@ -663,10 +667,14 @@ function savePolygon (e) {
     const polygonData = {
       id: currentPolygonId++,
       name: `Polygon ${currentPolygonId - 1}`,
+      description: 'No description',
       points: [...points],
       color: color,
       leafletPolygon: savedPolygon
     }
+
+    // Bind popup to polygon
+    savedPolygon.bindPopup(`<b>${polygonData.name}</b><br>${polygonData.description}`)
 
     polygons.push(polygonData)
     updatePolygonList()
@@ -731,7 +739,8 @@ function convertToGeoJSON(polygonData) {
     properties: {
       id: polygonData.id,
       name: polygonData.name,
-      color: polygonData.color
+      color: polygonData.color,
+      description: polygonData.description || ''
     },
     geometry: {
       type: "Polygon",
@@ -983,6 +992,12 @@ function saveEdits(polygonId) {
     polygonData.color = colorInput.value || polygonData.color
   }
 
+  // Update polygon description
+  const descriptionInput = document.getElementById(`polygon-description-${polygonId}`)
+  if (descriptionInput) {
+    polygonData.description = descriptionInput.value || ''
+  }
+
   // Remove all markers
   if (polygonData.markers) {
     polygonData.markers.forEach(marker => marker.remove())
@@ -1000,6 +1015,9 @@ function saveEdits(polygonId) {
     opacity: 0.5,
     fillOpacity: 0.2
   }).addTo(map)
+
+  // Bind popup to polygon with updated description
+  polygonData.leafletPolygon.bindPopup(`<b>${polygonData.name}</b><br>${polygonData.description}`)
 
   // Reset editing state
   editMode = false
