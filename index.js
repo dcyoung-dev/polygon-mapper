@@ -1192,6 +1192,7 @@ function importGeoJSON() {
 function processGeoJSONData(geoJSONData) {
   let importedCount = 0
   let skippedCount = 0
+  let importedMarkers = 0
 
   // Handle both FeatureCollection and single Feature
   const features = geoJSONData.type === 'FeatureCollection'
@@ -1226,9 +1227,9 @@ function processGeoJSONData(geoJSONData) {
         })
         break
       case 'Point':
-        // Optionally handle points as markers (skip for now since user wants polygons)
-        console.info('Skipping Point geometry (use marker import for points)')
-        skippedCount++
+        // Import points as markers
+        importMarkerFromGeoJSON(geometry, properties, index)
+        importedMarkers++
         break
       default:
         console.warn('Unsupported geometry type:', geometry.type)
@@ -1238,17 +1239,40 @@ function processGeoJSONData(geoJSONData) {
   })
 
   // Show import results
-  if (importedCount > 0) {
-    alert(`Successfully imported ${importedCount} polygon(s).${skippedCount > 0 ? ` Skipped ${skippedCount} unsupported features.` : ''}`)
-    updatePolygonList()
+  const totalImported = importedCount + importedMarkers
+  if (totalImported > 0) {
+    let message = ''
+    if (importedCount > 0 && importedMarkers > 0) {
+      message = `Successfully imported ${importedCount} polygon(s) and ${importedMarkers} marker(s).`
+    } else if (importedCount > 0) {
+      message = `Successfully imported ${importedCount} polygon(s).`
+    } else if (importedMarkers > 0) {
+      message = `Successfully imported ${importedMarkers} marker(s).`
+    }
 
-    // Fit map to show all imported polygons
+    if (skippedCount > 0) {
+      message += ` Skipped ${skippedCount} unsupported features.`
+    }
+
+    alert(message)
+    updatePolygonList()
+    updateMarkerList()
+
+    // Fit map to show all imported features
+    const allFeatures = []
     if (polygons.length > 0) {
-      const group = new L.featureGroup(polygons.map(p => p.leafletPolygon))
+      allFeatures.push(...polygons.map(p => p.leafletPolygon))
+    }
+    if (markers.length > 0) {
+      allFeatures.push(...markers.map(m => m.leafletMarker))
+    }
+
+    if (allFeatures.length > 0) {
+      const group = new L.featureGroup(allFeatures)
       map.fitBounds(group.getBounds().pad(0.1))
     }
   } else {
-    alert('No valid polygon features found in the GeoJSON file.')
+    alert('No valid polygon or marker features found in the GeoJSON file.')
   }
 }
 
@@ -1294,6 +1318,52 @@ function importPolygonFromGeoJSON(geometry, properties, index) {
   polygons.push(polygonData)
 
   console.debug('Imported polygon:', polygonData.name)
+}
+
+function importMarkerFromGeoJSON(geometry, properties, index) {
+  // GeoJSON Point coordinates are [longitude, latitude]
+  const coords = geometry.coordinates
+  const latlng = L.latLng(coords[1], coords[0])
+
+  // Determine color and name from properties or use defaults
+  const color = properties.color || polygonColors[(currentMarkerId - 1) % polygonColors.length]
+  const name = properties.name || `Imported Marker ${currentMarkerId}`
+
+  // Create a custom icon with the selected color
+  const markerIcon = L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  })
+
+  // Create the Leaflet marker
+  const leafletMarker = L.marker(latlng, {
+    icon: markerIcon,
+    draggable: false
+  }).addTo(map)
+
+  // Create a popup with the coordinates
+  const popupContent = `<b>${name}</b><br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
+  leafletMarker.bindPopup(popupContent)
+
+  // Store marker data
+  const markerData = {
+    id: currentMarkerId++,
+    name: name,
+    latlng: latlng,
+    color: color,
+    leafletMarker: leafletMarker
+  }
+
+  markers.push(markerData)
+
+  // Show the saved markers container if it was hidden
+  if (markers.length > 0) {
+    document.getElementById('saved-markers-container').style.display = 'block'
+  }
+
+  console.debug('Imported marker:', name)
 }
 
 // Event Listeners
