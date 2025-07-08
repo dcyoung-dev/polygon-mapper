@@ -685,7 +685,8 @@ function savePolygon (e) {
       points: [...points],
       color: color,
       leafletPolygon: savedPolygon,
-      numberMarker: numberMarker
+      numberMarker: numberMarker,
+      markerPosition: center // Store the custom marker position
     }
 
     // Bind popup to polygon
@@ -748,32 +749,53 @@ function removePoint(index) {
 
 // Function to convert polygon data to GeoJSON format
 function convertToGeoJSON(polygonData) {
-  // Create a GeoJSON feature for the polygon
+  // Create coordinates array for the polygon
+  const coordinates = [];
+
+  // Add coordinates to the polygon
+  // GeoJSON uses [longitude, latitude] format, while Leaflet uses [latitude, longitude]
+  polygonData.points.forEach(point => {
+    coordinates.push([point.lng, point.lat]);
+  });
+
+  // Close the polygon by repeating the first point
+  if (polygonData.points.length > 0) {
+    const firstPoint = polygonData.points[0];
+    coordinates.push([firstPoint.lng, firstPoint.lat]);
+  }
+
+  // Get the marker position
+  const markerPosition = polygonData.markerPosition || polygonData.leafletPolygon.getBounds().getCenter();
+
+  // Create a GeoJSON feature with GeometryCollection containing both polygon and marker point
   const feature = {
     type: "Feature",
     properties: {
       id: polygonData.id,
       name: polygonData.name,
       color: polygonData.color,
-      description: polygonData.description || ''
+      description: polygonData.description || '',
+      type: "polygon_with_marker",
+      markerNumber: polygonData.id,
+      markerPosition: {
+        lat: markerPosition.lat,
+        lng: markerPosition.lng
+      }
     },
     geometry: {
-      type: "Polygon",
-      coordinates: [[]]
+      type: "GeometryCollection",
+      geometries: [
+        {
+          type: "Polygon",
+          coordinates: [coordinates]
+        },
+        {
+          type: "Point",
+          coordinates: [markerPosition.lng, markerPosition.lat]
+        }
+      ]
     }
   };
-
-  // Add coordinates to the GeoJSON feature
-  // GeoJSON uses [longitude, latitude] format, while Leaflet uses [latitude, longitude]
-  polygonData.points.forEach(point => {
-    feature.geometry.coordinates[0].push([point.lng, point.lat]);
-  });
-
-  // Close the polygon by repeating the first point
-  if (polygonData.points.length > 0) {
-    const firstPoint = polygonData.points[0];
-    feature.geometry.coordinates[0].push([firstPoint.lng, firstPoint.lat]);
-  }
 
   return feature;
 }
@@ -786,7 +808,7 @@ function exportPolygon(polygonId) {
     return;
   }
 
-  // Convert polygon to GeoJSON
+  // Convert polygon to GeoJSON (returns a single feature with GeometryCollection)
   const feature = convertToGeoJSON(polygonData);
   const geoJSON = {
     type: "FeatureCollection",
@@ -804,7 +826,7 @@ function exportAllPolygons() {
     return;
   }
 
-  // Convert all polygons to GeoJSON
+  // Convert all polygons to GeoJSON features with GeometryCollection
   const features = polygons.map(polygonData => convertToGeoJSON(polygonData));
   const geoJSON = {
     type: "FeatureCollection",
@@ -921,6 +943,11 @@ function updateEditingPolygon(polygonData) {
     polygonData.markers.forEach(marker => marker.remove())
   }
 
+  // Remove existing number marker if it exists
+  if (polygonData.editingNumberMarker) {
+    polygonData.editingNumberMarker.remove()
+  }
+
   // Create a new polygon with the current points and color
   const color = document.getElementById(`polygon-color-${polygonData.id}`)?.value || polygonData.color
 
@@ -961,6 +988,26 @@ function updateEditingPolygon(polygonData) {
 
     return marker
   })
+
+  // Add a draggable number marker for editing position
+  const markerPosition = polygonData.markerPosition || polygonData.leafletPolygon.getBounds().getCenter()
+  const numberLabel = L.divIcon({
+    className: 'polygon-number-label editable',
+    html: `<div style="background-color: white; border: 2px solid ${color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${color}; cursor: move;">${polygonData.id}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  })
+
+  polygonData.editingNumberMarker = L.marker(markerPosition, {
+    icon: numberLabel,
+    draggable: true
+  }).addTo(map)
+
+  // Update marker position when dragged
+  polygonData.editingNumberMarker.on('dragend', function(e) {
+    polygonData.markerPosition = e.target.getLatLng()
+    console.debug('Number marker moved to:', polygonData.markerPosition)
+  })
 }
 
 function cancelEditing() {
@@ -970,10 +1017,16 @@ function cancelEditing() {
 
   const polygonData = polygons.find(p => p.id === editingPolygonId)
   if (polygonData) {
-    // Remove all markers
+    // Remove all vertex markers
     if (polygonData.markers) {
       polygonData.markers.forEach(marker => marker.remove())
       delete polygonData.markers
+    }
+
+    // Remove the editing number marker
+    if (polygonData.editingNumberMarker) {
+      polygonData.editingNumberMarker.remove()
+      delete polygonData.editingNumberMarker
     }
 
     // Restore the original polygon
@@ -988,8 +1041,8 @@ function cancelEditing() {
       fillOpacity: 0.2
     }).addTo(map)
 
-    // Restore the number marker
-    const center = polygonData.leafletPolygon.getBounds().getCenter()
+    // Restore the number marker at its custom position
+    const markerPosition = polygonData.markerPosition || polygonData.leafletPolygon.getBounds().getCenter()
     const numberLabel = L.divIcon({
       className: 'polygon-number-label',
       html: `<div style="background-color: white; border: 2px solid ${polygonData.color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${polygonData.color};">${polygonData.id}</div>`,
@@ -997,7 +1050,7 @@ function cancelEditing() {
       iconAnchor: [12, 12]
     })
 
-    polygonData.numberMarker = L.marker(center, {
+    polygonData.numberMarker = L.marker(markerPosition, {
       icon: numberLabel,
       interactive: false
     }).addTo(map)
@@ -1043,6 +1096,12 @@ function saveEdits(polygonId) {
     delete polygonData.markers
   }
 
+  // Remove the editing number marker
+  if (polygonData.editingNumberMarker) {
+    polygonData.editingNumberMarker.remove()
+    delete polygonData.editingNumberMarker
+  }
+
   // Create the final polygon
   if (polygonData.leafletPolygon) {
     polygonData.leafletPolygon.remove()
@@ -1055,8 +1114,8 @@ function saveEdits(polygonId) {
     fillOpacity: 0.2
   }).addTo(map)
 
-  // Create/update the number marker with the new color and position
-  const center = polygonData.leafletPolygon.getBounds().getCenter()
+  // Create/update the number marker with the new color and custom position
+  const markerPosition = polygonData.markerPosition || polygonData.leafletPolygon.getBounds().getCenter()
   const numberLabel = L.divIcon({
     className: 'polygon-number-label',
     html: `<div style="background-color: white; border: 2px solid ${polygonData.color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${polygonData.color};">${polygonData.id}</div>`,
@@ -1064,7 +1123,7 @@ function saveEdits(polygonId) {
     iconAnchor: [12, 12]
   })
 
-  polygonData.numberMarker = L.marker(center, {
+  polygonData.numberMarker = L.marker(markerPosition, {
     icon: numberLabel,
     interactive: false
   }).addTo(map)
@@ -1264,6 +1323,11 @@ function processGeoJSONData(geoJSONData) {
 
     // Handle different geometry types
     switch (geometry.type) {
+      case 'GeometryCollection':
+        // Handle polygons with markers stored as GeometryCollection
+        importPolygonWithMarkerFromGeoJSON(geometry, properties, index)
+        importedCount++
+        break
       case 'Polygon':
         importPolygonFromGeoJSON(geometry, properties, index)
         importedCount++
@@ -1355,6 +1419,20 @@ function importPolygonFromGeoJSON(geometry, properties, index) {
     fillOpacity: 0.2
   }).addTo(map)
 
+  // Create a number label for the imported polygon
+  const center = leafletPolygon.getBounds().getCenter()
+  const numberLabel = L.divIcon({
+    className: 'polygon-number-label',
+    html: `<div style="background-color: white; border: 2px solid ${color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${color};">${currentPolygonId}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  })
+
+  const numberMarker = L.marker(center, {
+    icon: numberLabel,
+    interactive: false
+  }).addTo(map)
+
   // Store polygon data
   const polygonData = {
     id: currentPolygonId++,
@@ -1362,7 +1440,9 @@ function importPolygonFromGeoJSON(geometry, properties, index) {
     description: description,
     points: leafletPoints,
     color: color,
-    leafletPolygon: leafletPolygon
+    leafletPolygon: leafletPolygon,
+    numberMarker: numberMarker,
+    markerPosition: center // Store the custom marker position
   }
 
   // Bind popup to polygon
@@ -1417,6 +1497,96 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
   }
 
   console.debug('Imported marker:', name)
+}
+
+function importPolygonWithMarkerFromGeoJSON(geometry, properties, index) {
+  // Find the polygon and point geometries in the GeometryCollection
+  let polygonGeometry = null
+  let pointGeometry = null
+
+  geometry.geometries.forEach(geom => {
+    if (geom.type === 'Polygon') {
+      polygonGeometry = geom
+    } else if (geom.type === 'Point') {
+      pointGeometry = geom
+    }
+  })
+
+  if (!polygonGeometry) {
+    console.warn('No polygon found in GeometryCollection, skipping')
+    return
+  }
+
+  // Convert GeoJSON coordinates to Leaflet LatLng objects
+  // GeoJSON uses [longitude, latitude], Leaflet uses [latitude, longitude]
+  const coordinates = polygonGeometry.coordinates[0] // Get the outer ring
+  const leafletPoints = coordinates.slice(0, -1).map(coord => {
+    return L.latLng(coord[1], coord[0]) // Convert [lng, lat] to [lat, lng]
+  })
+
+  if (leafletPoints.length < 3) {
+    console.warn('Polygon must have at least 3 points, skipping')
+    return
+  }
+
+  // Determine color and name from properties or use defaults
+  const color = properties.color || properties.stroke || polygonColors[(currentPolygonId - 1) % polygonColors.length]
+  const name = properties.name || properties.title || `Imported Polygon ${currentPolygonId}`
+  const description = properties.description || properties.desc || ''
+
+  // Create the Leaflet polygon
+  const leafletPolygon = L.polygon(leafletPoints, {
+    color: color,
+    weight: 3,
+    opacity: 0.5,
+    fillOpacity: 0.2
+  }).addTo(map)
+
+  // Determine marker position from the point geometry or use polygon center
+  let markerPosition
+  if (pointGeometry) {
+    // Use the point from the GeometryCollection
+    const pointCoords = pointGeometry.coordinates
+    markerPosition = L.latLng(pointCoords[1], pointCoords[0])
+  } else if (properties.markerPosition) {
+    // Use marker position from properties if available
+    markerPosition = L.latLng(properties.markerPosition.lat, properties.markerPosition.lng)
+  } else {
+    // Fall back to polygon center
+    markerPosition = leafletPolygon.getBounds().getCenter()
+  }
+
+  // Create a number label for the imported polygon
+  const numberLabel = L.divIcon({
+    className: 'polygon-number-label',
+    html: `<div style="background-color: white; border: 2px solid ${color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${color};">${currentPolygonId}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  })
+
+  const numberMarker = L.marker(markerPosition, {
+    icon: numberLabel,
+    interactive: false
+  }).addTo(map)
+
+  // Store polygon data
+  const polygonData = {
+    id: currentPolygonId++,
+    name: name,
+    description: description,
+    points: leafletPoints,
+    color: color,
+    leafletPolygon: leafletPolygon,
+    numberMarker: numberMarker,
+    markerPosition: markerPosition // Store the custom marker position
+  }
+
+  // Bind popup to polygon
+  leafletPolygon.bindPopup(`<b>${polygonData.name}</b><br>${polygonData.description}`)
+
+  polygons.push(polygonData)
+
+  console.debug('Imported polygon with marker from GeometryCollection:', polygonData.name)
 }
 
 // Event Listeners
