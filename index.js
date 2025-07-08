@@ -1139,6 +1139,9 @@ window.addEventListener('keydown', function(e) {
   }
 })
 
+// Add map click event listener
+map.on('click', onMapClick)
+
 // Add event listener for drawing mode toggle button
 document.getElementById('drawing-toggle').addEventListener('click', toggleDrawingMode)
 
@@ -1159,4 +1162,158 @@ document.getElementById('export-all-btn').addEventListener('click', exportAllPol
 // Add event listener for export all markers button
 document.getElementById('export-all-markers-btn').addEventListener('click', exportAllMarkers)
 
-map.on('click', onMapClick)
+// GeoJSON Import Functions
+function importGeoJSON() {
+  const fileInput = document.getElementById('geojson-file-input')
+  const file = fileInput.files[0]
+
+  if (!file) {
+    alert('Please select a GeoJSON file to import.')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = function(e) {
+    try {
+      const geoJSONData = JSON.parse(e.target.result)
+      processGeoJSONData(geoJSONData)
+
+      // Clear the file input
+      fileInput.value = ''
+    } catch (error) {
+      console.error('Error parsing GeoJSON file:', error)
+      alert('Error parsing GeoJSON file. Please ensure it is a valid GeoJSON format.')
+    }
+  }
+
+  reader.readAsText(file)
+}
+
+function processGeoJSONData(geoJSONData) {
+  let importedCount = 0
+  let skippedCount = 0
+
+  // Handle both FeatureCollection and single Feature
+  const features = geoJSONData.type === 'FeatureCollection'
+    ? geoJSONData.features
+    : [geoJSONData]
+
+  features.forEach((feature, index) => {
+    if (feature.type !== 'Feature') {
+      console.warn('Skipping non-feature item:', feature)
+      skippedCount++
+      return
+    }
+
+    const geometry = feature.geometry
+    const properties = feature.properties || {}
+
+    // Handle different geometry types
+    switch (geometry.type) {
+      case 'Polygon':
+        importPolygonFromGeoJSON(geometry, properties, index)
+        importedCount++
+        break
+      case 'MultiPolygon':
+        // Import each polygon in the MultiPolygon as separate polygons
+        geometry.coordinates.forEach((polygonCoords, polyIndex) => {
+          const singlePolygonGeometry = {
+            type: 'Polygon',
+            coordinates: polygonCoords
+          }
+          importPolygonFromGeoJSON(singlePolygonGeometry, properties, `${index}_${polyIndex}`)
+          importedCount++
+        })
+        break
+      case 'Point':
+        // Optionally handle points as markers (skip for now since user wants polygons)
+        console.info('Skipping Point geometry (use marker import for points)')
+        skippedCount++
+        break
+      default:
+        console.warn('Unsupported geometry type:', geometry.type)
+        skippedCount++
+        break
+    }
+  })
+
+  // Show import results
+  if (importedCount > 0) {
+    alert(`Successfully imported ${importedCount} polygon(s).${skippedCount > 0 ? ` Skipped ${skippedCount} unsupported features.` : ''}`)
+    updatePolygonList()
+
+    // Fit map to show all imported polygons
+    if (polygons.length > 0) {
+      const group = new L.featureGroup(polygons.map(p => p.leafletPolygon))
+      map.fitBounds(group.getBounds().pad(0.1))
+    }
+  } else {
+    alert('No valid polygon features found in the GeoJSON file.')
+  }
+}
+
+function importPolygonFromGeoJSON(geometry, properties, index) {
+  // Convert GeoJSON coordinates to Leaflet LatLng objects
+  // GeoJSON uses [longitude, latitude], Leaflet uses [latitude, longitude]
+  const coordinates = geometry.coordinates[0] // Get the outer ring
+  const leafletPoints = coordinates.slice(0, -1).map(coord => {
+    return L.latLng(coord[1], coord[0]) // Convert [lng, lat] to [lat, lng]
+  })
+
+  if (leafletPoints.length < 3) {
+    console.warn('Polygon must have at least 3 points, skipping')
+    return
+  }
+
+  // Determine color and name from properties or use defaults
+  const color = properties.color || properties.stroke || polygonColors[(currentPolygonId - 1) % polygonColors.length]
+  const name = properties.name || properties.title || `Imported Polygon ${currentPolygonId}`
+  const description = properties.description || properties.desc || ''
+
+  // Create the Leaflet polygon
+  const leafletPolygon = L.polygon(leafletPoints, {
+    color: color,
+    weight: 3,
+    opacity: 0.5,
+    fillOpacity: 0.2
+  }).addTo(map)
+
+  // Store polygon data
+  const polygonData = {
+    id: currentPolygonId++,
+    name: name,
+    description: description,
+    points: leafletPoints,
+    color: color,
+    leafletPolygon: leafletPolygon
+  }
+
+  // Bind popup to polygon
+  leafletPolygon.bindPopup(`<b>${polygonData.name}</b><br>${polygonData.description}`)
+
+  polygons.push(polygonData)
+
+  console.debug('Imported polygon:', polygonData.name)
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+  // GeoJSON import button
+  const importBtn = document.getElementById('import-geojson-btn')
+  if (importBtn) {
+    importBtn.addEventListener('click', importGeoJSON)
+  }
+
+  // File input change event (optional - for immediate import when file is selected)
+  const fileInput = document.getElementById('geojson-file-input')
+  if (fileInput) {
+    fileInput.addEventListener('change', function() {
+      if (this.files[0]) {
+        // Auto-import when file is selected (optional)
+        // importGeoJSON()
+      }
+    })
+  }
+
+  // ...existing event listeners...
+})
