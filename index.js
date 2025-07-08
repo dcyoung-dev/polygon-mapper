@@ -663,6 +663,20 @@ function savePolygon (e) {
       fillOpacity: 0.2 
     }).addTo(map)
 
+    // Create a number label for the polygon
+    const center = savedPolygon.getBounds().getCenter()
+    const numberLabel = L.divIcon({
+      className: 'polygon-number-label',
+      html: `<div style="background-color: white; border: 2px solid ${color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${color};">${currentPolygonId}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    })
+
+    const numberMarker = L.marker(center, {
+      icon: numberLabel,
+      interactive: false
+    }).addTo(map)
+
     // Store polygon data
     const polygonData = {
       id: currentPolygonId++,
@@ -670,7 +684,8 @@ function savePolygon (e) {
       description: 'No description',
       points: [...points],
       color: color,
-      leafletPolygon: savedPolygon
+      leafletPolygon: savedPolygon,
+      numberMarker: numberMarker
     }
 
     // Bind popup to polygon
@@ -842,7 +857,12 @@ function deletePolygon(polygonId) {
     polygonData.leafletPolygon.remove()
   }
 
-  // Remove any markers if they exist
+  // Remove the number marker from the map
+  if (polygonData.numberMarker) {
+    polygonData.numberMarker.remove()
+  }
+
+  // Remove any editing markers if they exist
   if (polygonData.markers) {
     polygonData.markers.forEach(marker => marker.remove())
   }
@@ -874,6 +894,11 @@ function startEditing(polygonId) {
   // Set editing state
   editMode = true
   editingPolygonId = polygonId
+
+  // Hide the number marker during editing
+  if (polygonData.numberMarker) {
+    polygonData.numberMarker.remove()
+  }
 
   // Remove the regular polygon and create an editable version
   polygonData.leafletPolygon.remove()
@@ -962,6 +987,20 @@ function cancelEditing() {
       opacity: 0.5,
       fillOpacity: 0.2
     }).addTo(map)
+
+    // Restore the number marker
+    const center = polygonData.leafletPolygon.getBounds().getCenter()
+    const numberLabel = L.divIcon({
+      className: 'polygon-number-label',
+      html: `<div style="background-color: white; border: 2px solid ${polygonData.color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${polygonData.color};">${polygonData.id}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    })
+
+    polygonData.numberMarker = L.marker(center, {
+      icon: numberLabel,
+      interactive: false
+    }).addTo(map)
   }
 
   // Reset editing state
@@ -998,7 +1037,7 @@ function saveEdits(polygonId) {
     polygonData.description = descriptionInput.value || ''
   }
 
-  // Remove all markers
+  // Remove all editing markers
   if (polygonData.markers) {
     polygonData.markers.forEach(marker => marker.remove())
     delete polygonData.markers
@@ -1014,6 +1053,20 @@ function saveEdits(polygonId) {
     weight: 3,
     opacity: 0.5,
     fillOpacity: 0.2
+  }).addTo(map)
+
+  // Create/update the number marker with the new color and position
+  const center = polygonData.leafletPolygon.getBounds().getCenter()
+  const numberLabel = L.divIcon({
+    className: 'polygon-number-label',
+    html: `<div style="background-color: white; border: 2px solid ${polygonData.color}; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: ${polygonData.color};">${polygonData.id}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  })
+
+  polygonData.numberMarker = L.marker(center, {
+    icon: numberLabel,
+    interactive: false
   }).addTo(map)
 
   // Bind popup to polygon with updated description
