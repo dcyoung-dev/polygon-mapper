@@ -26,6 +26,60 @@ let currentMarkerId = 1
 let editingMarkerId = null
 let markerEditMode = false
 
+// Icon selection variables
+let selectedIconType = 'default'
+
+// Icon configuration
+const iconConfig = {
+  default: {
+    html: '<div style="background-color:#007bff;width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>',
+    size: [20, 20],
+    anchor: [10, 10]
+  },
+  toilet: {
+    size: [24, 24],
+    anchor: [12, 12],
+    template: 'toilet-icon'
+  },
+  'disabled-toilet': {
+    size: [44, 24],
+    anchor: [22, 12],
+    template: 'disabled-toilet-icon'
+  },
+  parking: {
+    size: [24, 24],
+    anchor: [12, 12],
+    template: 'parking-icon'
+  },
+  'disabled-parking': {
+        size: [44, 24],
+    anchor: [22, 12],
+    template: 'disabled-parking-icon'
+  }
+}
+
+// Function to create icon based on type and color
+function createMarkerIcon(iconType, color = '#007bff') {
+  const config = iconConfig[iconType] || iconConfig.default
+
+let html = ''
+
+  if (iconType === 'default') {
+    html = `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`
+  } else {
+    const template = document.getElementById(config.template)
+    let clone = template.content.cloneNode(true)
+    html = clone.querySelector('div').innerHTML
+  }
+
+  return L.divIcon({
+    className: 'custom-marker',
+    html: html,
+    iconSize: config.size,
+    iconAnchor: config.anchor
+  })
+}
+
 function updateCurrentPointsList() {
   const pointsList = document.getElementById('current-points-list')
   pointsList.innerHTML = ''
@@ -95,13 +149,8 @@ function addMarker(latlng) {
   const colorIndex = (currentMarkerId - 1) % polygonColors.length
   const color = polygonColors[colorIndex]
 
-  // Create a custom icon with the selected color
-  const markerIcon = L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10]
-  })
+  // Create a custom icon with the selected icon type and color
+  const markerIcon = createMarkerIcon(selectedIconType, color)
 
   // Create the Leaflet marker
   const leafletMarker = L.marker(latlng, {
@@ -109,8 +158,9 @@ function addMarker(latlng) {
     draggable: false
   }).addTo(map)
 
-  // Create a popup with the coordinates
-  const popupContent = `<b>Marker ${currentMarkerId}</b><br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
+  // Create a popup with the coordinates and icon type
+  const iconName = selectedIconType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const popupContent = `<b>Marker ${currentMarkerId}</b><br>Type: ${iconName}<br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
   leafletMarker.bindPopup(popupContent)
 
   // Store marker data
@@ -119,6 +169,7 @@ function addMarker(latlng) {
     name: `Marker ${currentMarkerId - 1}`,
     latlng: latlng,
     color: color,
+    iconType: selectedIconType,
     leafletMarker: leafletMarker
   }
 
@@ -492,6 +543,12 @@ function toggleMarkerMode() {
   const mapElement = document.getElementById('map');
   if (mapElement) {
     mapElement.style.cursor = markerMode ? 'crosshair' : 'grab';
+  }
+
+  // Show or hide the icon selection container based on marker mode
+  const iconSelectionContainer = document.getElementById('icon-selection-container');
+  if (iconSelectionContainer) {
+    iconSelectionContainer.style.display = markerMode ? 'block' : 'none';
   }
 
   // Show or hide the saved markers container based on marker mode and if there are markers
@@ -1166,6 +1223,16 @@ style.textContent = `
   .delete-point-btn:hover {
     background-color: #bd2130;
   }
+
+  .emoji-marker {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    font-size: 18px;
+    color: #333;
+  }
 `
 document.head.appendChild(style)
 
@@ -1608,5 +1675,19 @@ document.addEventListener('DOMContentLoaded', function() {
     })
   }
 
-  // ...existing event listeners...
+  // Add event listener for icon selection
+  const iconOptions = document.querySelectorAll('.icon-option')
+  iconOptions.forEach(option => {
+    option.addEventListener('click', function() {
+      // Remove active class from all options
+      iconOptions.forEach(opt => opt.classList.remove('active'))
+
+      // Add active class to clicked option
+      this.classList.add('active')
+
+      // Update selected icon type
+      selectedIconType = this.dataset.icon
+      console.log('Selected icon type:', selectedIconType)
+    })
+  })
 })
