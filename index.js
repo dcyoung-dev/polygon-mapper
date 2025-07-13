@@ -287,6 +287,7 @@ function createMarkerEditForm(markerData) {
   // Get the form elements
   const nameInput = clone.querySelector('.form-group input[type="text"]')
   const colorInput = clone.querySelector('.form-group input[type="color"]')
+  const iconSelect = clone.querySelector('.marker-icon-select')
   const cancelBtn = clone.querySelector('.cancel-marker-btn')
   const saveBtn = clone.querySelector('.save-marker-btn')
 
@@ -296,6 +297,10 @@ function createMarkerEditForm(markerData) {
 
   colorInput.value = markerData.color
   colorInput.id = `marker-color-${markerData.id}`
+
+  // Set the selected icon type
+  iconSelect.value = markerData.iconType || 'default'
+  iconSelect.id = `marker-icon-${markerData.id}`
 
   // Add event listeners to buttons
   cancelBtn.addEventListener('click', (e) => {
@@ -399,23 +404,24 @@ function saveMarkerEdits(markerId) {
   const colorInput = document.getElementById(`marker-color-${markerId}`)
   if (colorInput) {
     markerData.color = colorInput.value || markerData.color
-
-    // Update the marker icon with the new color
-    const markerIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="background-color:${markerData.color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    })
-
-    markerData.leafletMarker.setIcon(markerIcon)
   }
+
+  // Update marker icon type
+  const iconSelect = document.getElementById(`marker-icon-${markerId}`)
+  if (iconSelect) {
+    markerData.iconType = iconSelect.value || markerData.iconType
+  }
+
+  // Update the marker icon with the new color and icon type
+  const markerIcon = createMarkerIcon(markerData.iconType, markerData.color)
+  markerData.leafletMarker.setIcon(markerIcon)
 
   // Disable dragging
   markerData.leafletMarker.dragging.disable()
 
-  // Update the popup content
-  const popupContent = `<b>${markerData.name}</b><br>Lat: ${markerData.latlng.lat.toFixed(6)}<br>Lng: ${markerData.latlng.lng.toFixed(6)}`
+  // Update the popup content with icon type
+  const iconName = markerData.iconType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const popupContent = `<b>${markerData.name}</b><br>Type: ${iconName}<br>Lat: ${markerData.latlng.lat.toFixed(6)}<br>Lng: ${markerData.latlng.lng.toFixed(6)}`
   markerData.leafletMarker.setPopupContent(popupContent)
 
   // Reset editing state
