@@ -59,13 +59,14 @@ const iconConfig = {
 }
 
 // Function to create icon based on type and color
-function createMarkerIcon(iconType, color = '#007bff') {
+function createMarkerIcon(iconType, color = '#007bff', markerNumber = null) {
   const config = iconConfig[iconType] || iconConfig.default
 
 let html = ''
 
   if (iconType === 'default') {
-    html = `<div style="background-color:${color};width:25px;height:25px;border-radius:50%;border:2px solid white;"></div>`
+    const numberDisplay = markerNumber ? `<span style="color:white;font-weight:bold;font-size:12px;line-height:25px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${markerNumber}</span>` : ''
+    html = `<div style="background-color:${color};width:25px;height:25px;border-radius:4px;border:2px solid white;display:flex;align-items:center;justify-content:center;">${numberDisplay}</div>`
   } else {
     const template = document.getElementById(config.template)
     let clone = template.content.cloneNode(true)
@@ -149,8 +150,9 @@ function addMarker(latlng) {
   const colorIndex = (currentMarkerId - 1) % polygonColors.length
   const color = polygonColors[colorIndex]
 
-  // Create a custom icon with the selected icon type and color
-  const markerIcon = createMarkerIcon(selectedIconType, color)
+  // Create a custom icon with the selected icon type, color, and marker number for default icons
+  const markerNumber = selectedIconType === 'default' ? currentMarkerId : null
+  const markerIcon = createMarkerIcon(selectedIconType, color, markerNumber)
 
   // Create the Leaflet marker
   const leafletMarker = L.marker(latlng, {
@@ -412,8 +414,9 @@ function saveMarkerEdits(markerId) {
     markerData.iconType = iconSelect.value || markerData.iconType
   }
 
-  // Update the marker icon with the new color and icon type
-  const markerIcon = createMarkerIcon(markerData.iconType, markerData.color)
+  // Update the marker icon with the new color, icon type, and marker number for default icons
+  const markerNumber = markerData.iconType === 'default' ? markerData.id : null
+  const markerIcon = createMarkerIcon(markerData.iconType, markerData.color, markerNumber)
   markerData.leafletMarker.setIcon(markerIcon)
 
   // Disable dragging
@@ -1537,8 +1540,9 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
   const name = properties.name || `Imported Marker ${currentMarkerId}`
   const iconType = properties.iconType || 'default'
 
-  // Create a custom icon with the correct icon type and color
-  const markerIcon = createMarkerIcon(iconType, color)
+  // Create a custom icon with the correct icon type, color, and marker number for default icons
+  const markerNumber = iconType === 'default' ? currentMarkerId : null
+  const markerIcon = createMarkerIcon(iconType, color, markerNumber)
 
   // Create the Leaflet marker
   const leafletMarker = L.marker(latlng, {
