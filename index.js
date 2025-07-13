@@ -6,9 +6,9 @@ const simpleViewUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 let isSimpleView = true // Track current view mode
 let currentTileLayer = null // Store the current tile layer
 
-const map = L.map('map').setView([57.661273, -2.746539], 17)
+const map = L.map('map').setView([57.661273, -2.746539], 18)
 currentTileLayer = L.tileLayer(simpleViewUrl, {
-  maxZoom: 19,
+  maxZoom: 25,
   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map)
 
