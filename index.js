@@ -471,7 +471,8 @@ function convertMarkerToGeoJSON(markerData) {
     properties: {
       id: markerData.id,
       name: markerData.name,
-      color: markerData.color
+      color: markerData.color,
+      iconType: markerData.iconType || 'default'
     },
     geometry: {
       type: "Point",
@@ -1525,17 +1526,13 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
   const coords = geometry.coordinates
   const latlng = L.latLng(coords[1], coords[0])
 
-  // Determine color and name from properties or use defaults
+  // Determine color, name, and icon type from properties or use defaults
   const color = properties.color || polygonColors[(currentMarkerId - 1) % polygonColors.length]
   const name = properties.name || `Imported Marker ${currentMarkerId}`
+  const iconType = properties.iconType || 'default'
 
-  // Create a custom icon with the selected color
-  const markerIcon = L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10]
-  })
+  // Create a custom icon with the correct icon type and color
+  const markerIcon = createMarkerIcon(iconType, color)
 
   // Create the Leaflet marker
   const leafletMarker = L.marker(latlng, {
@@ -1543,8 +1540,9 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
     draggable: false
   }).addTo(map)
 
-  // Create a popup with the coordinates
-  const popupContent = `<b>${name}</b><br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
+  // Create a popup with the coordinates and icon type
+  const iconName = iconType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const popupContent = `<b>${name}</b><br>Type: ${iconName}<br>Lat: ${latlng.lat.toFixed(6)}<br>Lng: ${latlng.lng.toFixed(6)}`
   leafletMarker.bindPopup(popupContent)
 
   // Store marker data
@@ -1553,6 +1551,7 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
     name: name,
     latlng: latlng,
     color: color,
+    iconType: iconType,
     leafletMarker: leafletMarker
   }
 
@@ -1563,7 +1562,7 @@ function importMarkerFromGeoJSON(geometry, properties, index) {
     document.getElementById('saved-markers-container').style.display = 'block'
   }
 
-  console.debug('Imported marker:', name)
+  console.debug('Imported marker:', name, 'with icon type:', iconType)
 }
 
 function importPolygonWithMarkerFromGeoJSON(geometry, properties, index) {
