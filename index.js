@@ -65,7 +65,7 @@ function createMarkerIcon(iconType, color = '#007bff') {
 let html = ''
 
   if (iconType === 'default') {
-    html = `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;"></div>`
+    html = `<div style="background-color:${color};width:25px;height:25px;border-radius:50%;border:2px solid white;"></div>`
   } else {
     const template = document.getElementById(config.template)
     let clone = template.content.cloneNode(true)
